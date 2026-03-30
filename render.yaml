@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: flowscope
+    runtime: node
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: MONGO_URI
+        value: mongodb+srv://Flowscope-trade:Yousif1980@flowscope-cluster.bbjzl8r.mongodb.net/flowscope?retryWrites=true&w=majority&appName=Flowscope-Cluster
+      - key: SESSION_SECRET
+        value: FlowScope_Secret_2026_Secure
+      - key: NODE_ENV
+        value: production
