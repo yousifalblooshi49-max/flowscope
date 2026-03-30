@@ -1,11 +1,17 @@
 'use strict';
 
-require('dotenv').config({ path: require('path').join(__dirname, 'flowscope.env') });
+// Load .env or flowscope.env locally; on Render, process.env is injected directly
+const path = require('path');
+const fs   = require('fs');
+const envFiles = ['.env', 'flowscope.env'];
+for (const f of envFiles) {
+  const p = path.join(__dirname, f);
+  if (fs.existsSync(p)) { require('dotenv').config({ path: p }); break; }
+}
 
 const express        = require('express');
 const session        = require('express-session');
 const bcrypt         = require('bcryptjs');
-const path           = require('path');
 const cors           = require('cors');
 const connectDB      = require('./config/db');
 const User           = require('./models/User');
