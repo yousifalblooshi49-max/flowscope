@@ -597,248 +597,211 @@
 
 <script>
 /* ================================================================
-   FLOWSCOPE ADMIN — ANALYTICS ENGINE
-   Isolated module. Safe to remove by deleting #analytics-section
-   and this <script> block.
+   FLOWSCOPE ADMIN — REAL DATA ENGINE
+   Fetches /api/admin/stats and /api/admin/users from MongoDB.
+   No Math.random, no localStorage simulation.
 ================================================================ */
 (function () {
   'use strict';
 
-  /* ── Storage keys ── */
-  var K = {
-    visits:   'fs_visits',
-    signups:  'fs_signups',
-    active:   'fs_active',
-    log:      'fs_event_log',
-    seed:     'fs_seeded'
-  };
-
-  /* ── Range state ── */
-  var currentRange = 7;
-
   /* ── Helpers ── */
-  function ls(key, def) {
-    try { var v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : def; }
-    catch(e) { return def; }
-  }
-  function lsSet(key, val) {
-    try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
-  }
-  function todayStr() {
-    var d = new Date();
-    return d.getFullYear() + '-' +
-      String(d.getMonth()+1).padStart(2,'0') + '-' +
-      String(d.getDate()).padStart(2,'0');
-  }
-  function dateStr(daysAgo) {
-    var d = new Date();
-    d.setDate(d.getDate() - daysAgo);
-    return d.getFullYear() + '-' +
-      String(d.getMonth()+1).padStart(2,'0') + '-' +
-      String(d.getDate()).padStart(2,'0');
-  }
-  function shortDate(str) {
-    var p = str.split('-');
-    return p[1] + '/' + p[2];
-  }
   function el(id) { return document.getElementById(id); }
-  function setText(id, v) { var e=el(id); if(e) e.textContent=v; }
-  function fmtNum(n) { return n >= 1000 ? (n/1000).toFixed(1)+'K' : String(n); }
+  function setText(id, v) { var e = el(id); if (e) e.textContent = v; }
 
-  /* ── Seed realistic historical data if first run ── */
-  function seedIfNeeded() {
-    if (ls(K.seed, false)) return;
-    var visits  = ls(K.visits, {});
-    var signups = ls(K.signups, {});
-    var active  = ls(K.active, {});
-    var log     = ls(K.log, []);
-
-    for (var i = 30; i >= 0; i--) {
-      var d = dateStr(i);
-      var v = 80 + Math.floor(Math.random() * 220);
-      var s = Math.floor(v * (0.04 + Math.random() * 0.08));
-      var a = Math.floor(s * (0.5 + Math.random() * 0.4));
-      visits[d]  = (visits[d]  || 0) + v;
-      signups[d] = (signups[d] || 0) + s;
-      active[d]  = (active[d]  || 0) + a;
-    }
-
-    /* seed some log entries */
-    var types = ['visit','signup','active'];
-    var msgs  = {
-      visit:  ['New visitor from organic search','Page view: /dashboard','Referral visit: twitter','Direct visit recorded'],
-      signup: ['New user registered','Account created via email','Signup completed','New subscriber added'],
-      active: ['User session started','Returning user active','Pro user logged in','User accessed flow engine']
-    };
-    for (var j = 0; j < 20; j++) {
-      var t = types[Math.floor(Math.random()*3)];
-      var mArr = msgs[t];
-      var ago = Math.floor(Math.random() * 3600);
-      log.push({ type: t, msg: mArr[Math.floor(Math.random()*mArr.length)], ts: Date.now() - ago*1000 });
-    }
-    log.sort(function(a,b){ return b.ts - a.ts; });
-
-    lsSet(K.visits,  visits);
-    lsSet(K.signups, signups);
-    lsSet(K.active,  active);
-    lsSet(K.log,     log.slice(0, 60));
-    lsSet(K.seed,    true);
+  /* ── Clock ── */
+  function updateClock() {
+    var now = new Date();
+    var t = String(now.getHours()).padStart(2,'0') + ':' +
+            String(now.getMinutes()).padStart(2,'0') + ':' +
+            String(now.getSeconds()).padStart(2,'0');
+    setText('nav-clock', t);
   }
 
-  /* ── Track current page visit ── */
-  function trackVisit() {
-    var visits = ls(K.visits, {});
-    var d = todayStr();
-    visits[d] = (visits[d] || 0) + 1;
-    lsSet(K.visits, visits);
-    addLog('visit', 'Admin dashboard visited');
-  }
-
-  /* ── Simulate live trickle (replaces real-time backend events) ── */
-  function simulateTick() {
-    var now  = Date.now();
-    var d    = todayStr();
-    var visits  = ls(K.visits, {});
-    var signups = ls(K.signups, {});
-    var active  = ls(K.active, {});
-    var log     = ls(K.log, []);
-
-    /* random small increments */
-    if (Math.random() < 0.7) { visits[d]  = (visits[d]  || 0) + Math.floor(Math.random()*3+1); }
-    if (Math.random() < 0.2) { signups[d] = (signups[d] || 0) + 1; addLog('signup','New user registered'); }
-    if (Math.random() < 0.4) { active[d]  = (active[d]  || 0) + Math.floor(Math.random()*2+1); }
-
-    lsSet(K.visits,  visits);
-    lsSet(K.signups, signups);
-    lsSet(K.active,  active);
-  }
-
-  function addLog(type, msg) {
-    var log = ls(K.log, []);
-    log.unshift({ type: type, msg: msg, ts: Date.now() });
-    lsSet(K.log, log.slice(0, 60));
-  }
-
-  /* ── Build date range arrays ── */
-  function buildRange(days) {
-    var labels   = [];
-    var visitArr = [];
-    var signArr  = [];
-    var actArr   = [];
-    var visits  = ls(K.visits, {});
-    var signups = ls(K.signups, {});
-    var active  = ls(K.active, {});
-
-    for (var i = days - 1; i >= 0; i--) {
-      var d = dateStr(i);
-      labels.push(shortDate(d));
-      visitArr.push(visits[d]  || 0);
-      signArr.push(signups[d]  || 0);
-      actArr.push(active[d]    || 0);
-    }
-    return { labels: labels, visits: visitArr, signups: signArr, active: actArr };
-  }
-
-  function sumArr(arr) { return arr.reduce(function(a,b){ return a+b; }, 0); }
-
-  /* ── Metric Cards ── */
-  function updateMetrics(data) {
-    var totalV = sumArr(data.visits);
-    var totalS = sumArr(data.signups);
-    var totalA = sumArr(data.active);
-    var conv   = totalV > 0 ? ((totalS / totalV) * 100).toFixed(1) : '0.0';
-
-    /* half-period comparison */
-    var half   = Math.floor(data.visits.length / 2);
-    var prevV  = sumArr(data.visits.slice(0, half));
-    var currV  = sumArr(data.visits.slice(half));
-    var vChg   = prevV > 0 ? (((currV - prevV) / prevV) * 100).toFixed(1) : '0.0';
-    var prevS  = sumArr(data.signups.slice(0, half));
-    var currS  = sumArr(data.signups.slice(half));
-    var sChg   = prevS > 0 ? (((currS - prevS) / prevS) * 100).toFixed(1) : '0.0';
-
-    setText('mc-visitors', fmtNum(totalV));
-    setText('mc-signups',  fmtNum(totalS));
-    setText('mc-active',   fmtNum(totalA));
-    setText('mc-conv',     conv + '%');
+  /* ── Render stats from /api/admin/stats ── */
+  function renderStats(stats) {
+    /* Metric cards: repurpose existing IDs with real data */
+    setText('mc-visitors',  String(stats.totalUsers));
+    setText('mc-signups',   String(stats.normalUsers));
+    setText('mc-active',    String(stats.activeTrials));
+    setText('mc-conv',      String(stats.subscribedUsers));
 
     var vBadge = el('mc-visitors-badge');
-    if (vBadge) {
-      vBadge.textContent = (vChg >= 0 ? '▲ +' : '▼ ') + vChg + '%';
-      vBadge.className = 'mc-badge ' + (vChg >= 0 ? 'up' : 'down');
-    }
+    if (vBadge) { vBadge.textContent = stats.adminCount + ' admin'; vBadge.className = 'mc-badge neu'; }
     var sBadge = el('mc-signups-badge');
-    if (sBadge) {
-      sBadge.textContent = (sChg >= 0 ? '▲ +' : '▼ ') + sChg + '%';
-      sBadge.className = 'mc-badge ' + (sChg >= 0 ? 'up' : 'down');
-    }
+    if (sBadge) { sBadge.textContent = 'registered'; sBadge.className = 'mc-badge neu'; }
     var aBadge = el('mc-active-badge');
-    if (aBadge) {
-      aBadge.textContent = fmtNum(totalA) + ' sessions';
-      aBadge.className = 'mc-badge neu';
-    }
+    if (aBadge) { aBadge.textContent = stats.expiredTrials + ' expired'; aBadge.className = 'mc-badge' + (stats.expiredTrials > 0 ? ' down' : ' neu'); }
     var cBadge = el('mc-conv-badge');
-    if (cBadge) {
-      cBadge.textContent = conv + '% rate';
-      cBadge.style.background = 'rgba(0,229,255,.1)';
-      cBadge.style.color = 'var(--cyan)';
+    if (cBadge) { cBadge.textContent = 'subscribed'; cBadge.style.background = 'rgba(0,229,255,.1)'; cBadge.style.color = 'var(--cyan)'; }
+
+    /* Update metric card labels to reflect real meaning */
+    var labels = document.querySelectorAll('.mc-label');
+    var labelMap = ['Total Users','Normal Users','Active Trials','Subscribed'];
+    for (var i = 0; i < labels.length && i < labelMap.length; i++) {
+      labels[i].textContent = labelMap[i];
+    }
+    var footers = document.querySelectorAll('.mc-footer span:last-child');
+    var footerMap = ['in database','non-admin accounts','trial active now','paid plans'];
+    for (var j = 0; j < footers.length && j < footerMap.length; j++) {
+      footers[j].textContent = footerMap[j];
     }
 
-    setText('chart-visitor-total', fmtNum(totalV));
-    setText('chart-signup-total',  fmtNum(totalS));
+    /* Funnel: use real counts */
+    setText('funnel-v', String(stats.totalUsers));
+    setText('funnel-s', String(stats.normalUsers));
+    setText('funnel-a', String(stats.activeTrials));
+    setText('funnel-c', String(stats.subscribedUsers));
+    var fv = el('funnel-bar-v'); if (fv) fv.style.width = '100%';
+    var fs = el('funnel-bar-s'); if (fs) fs.style.width = (stats.totalUsers > 0 ? Math.min((stats.normalUsers / stats.totalUsers) * 100, 100) : 0) + '%';
+    var fa = el('funnel-bar-a'); if (fa) fa.style.width = (stats.normalUsers > 0 ? Math.min((stats.activeTrials / stats.normalUsers) * 100, 100) : 0) + '%';
+    var fc = el('funnel-bar-c'); if (fc) fc.style.width = (stats.normalUsers > 0 ? Math.min((stats.subscribedUsers / stats.normalUsers) * 100, 100) : 0) + '%';
 
-    /* funnel */
-    setText('funnel-v', fmtNum(totalV));
-    setText('funnel-s', fmtNum(totalS));
-    setText('funnel-a', fmtNum(totalA));
-    setText('funnel-c', conv + '%');
-    var fv = el('funnel-bar-v'); if(fv) fv.style.width = '100%';
-    var fs = el('funnel-bar-s'); if(fs) fs.style.width = (totalV > 0 ? Math.min((totalS/totalV)*100,100) : 0) + '%';
-    var fa = el('funnel-bar-a'); if(fa) fa.style.width = (totalV > 0 ? Math.min((totalA/totalV)*100,100) : 0) + '%';
-    var fc = el('funnel-bar-c'); if(fc) fc.style.width = Math.min(parseFloat(conv), 100) + '%';
+    /* Funnel labels */
+    var funnelLabels = document.querySelectorAll('.conv-label-row span:first-child');
+    var funnelLabelMap = ['Total Users','Normal Users','Active Trials','Subscribed'];
+    for (var k = 0; k < funnelLabels.length && k < funnelLabelMap.length; k++) {
+      funnelLabels[k].textContent = funnelLabelMap[k];
+    }
+
+    /* System stub: static real values */
+    setText('stub-api',     '--');
+    setText('stub-api-chg', 'No tracking yet');
+    setText('stub-resp',    '--');
+    var rc = el('stub-resp-chg'); if (rc) { rc.textContent = 'No tracking yet'; rc.className = 's-chg'; }
+    setText('stub-err',     '--');
+    var ec = el('stub-err-chg'); if (ec) { ec.textContent = 'No tracking yet'; ec.className = 's-chg'; }
+    setText('stub-db',      'Connected');
+    setText('stub-uptime',  '--');
+
+    /* Charts: draw bar chart of user distribution */
+    var vc = el('visitorChart');
+    var sc = el('signupChart');
+    if (vc) drawStatsBarChart(vc, ['Total','Normal','Admins','Subscribed','Active Trial','Expired Trial'],
+      [stats.totalUsers, stats.normalUsers, stats.adminCount, stats.subscribedUsers, stats.activeTrials, stats.expiredTrials],
+      '#448aff');
+    if (sc) drawStatsBarChart(sc, ['Total','Normal','Admins','Subscribed','Active Trial','Expired Trial'],
+      [stats.totalUsers, stats.normalUsers, stats.adminCount, stats.subscribedUsers, stats.activeTrials, stats.expiredTrials],
+      '#00e676');
+
+    setText('chart-visitor-total', String(stats.totalUsers));
+    setText('chart-signup-total',  String(stats.normalUsers));
+
+    /* Update chart subtitles */
+    var cpSubs = document.querySelectorAll('.cp-sub');
+    if (cpSubs[0]) cpSubs[0].textContent = 'User distribution from MongoDB';
+    if (cpSubs[1]) cpSubs[1].textContent = 'User counts by category';
+    var cpTitles = document.querySelectorAll('.cp-title');
+    if (cpTitles[0]) cpTitles[0].textContent = 'User Distribution';
+    if (cpTitles[1]) cpTitles[1].textContent = 'User Categories';
+    var cpStatSub = document.querySelector('.section-sub');
+    if (cpStatSub) cpStatSub.textContent = 'Real data from MongoDB — refreshes every 30 seconds';
   }
 
-  /* ── Activity Feed ── */
-  function updateFeed() {
+  /* ── Render user table from /api/admin/users ── */
+  function renderUsers(users) {
     var feed = el('activity-feed');
     if (!feed) return;
-    var log = ls(K.log, []);
+    if (!users || users.length === 0) {
+      feed.innerHTML = '<div class="activity-item"><div class="act-text" style="color:var(--muted)">No users found.</div></div>';
+      return;
+    }
     var html = '';
-    var shown = log.slice(0, 12);
-    for (var i = 0; i < shown.length; i++) {
-      var e = shown[i];
-      var ago = Math.round((Date.now() - e.ts) / 1000);
-      var agoStr = ago < 60 ? ago + 's ago'
-        : ago < 3600 ? Math.floor(ago/60) + 'm ago'
-        : Math.floor(ago/3600) + 'h ago';
+    for (var i = 0; i < users.length; i++) {
+      var u = users[i];
+      var now = Date.now();
+      var trialActive = u.trialUsed && u.trialEndsAt && now < new Date(u.trialEndsAt).getTime();
+      var status = u.isAdmin ? 'admin' : (u.hasSubscription ? 'active' : (trialActive ? 'active' : 'visit'));
+      var statusLabel = u.isAdmin ? 'Admin' : (u.hasSubscription ? 'Subscribed' : (trialActive ? 'Trial' : 'Free'));
+      var joined = u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '--';
       html += '<div class="activity-item">' +
-        '<div class="act-dot ' + e.type + '"></div>' +
-        '<div class="act-text">' + e.msg + '</div>' +
-        '<div class="act-time">' + agoStr + '</div>' +
+        '<div class="act-dot ' + status + '"></div>' +
+        '<div class="act-text"><strong>' + u.username + '</strong> &nbsp;<span style="color:var(--muted);font-size:.7rem">' + statusLabel + '</span></div>' +
+        '<div class="act-time">' + joined + '</div>' +
         '</div>';
     }
     feed.innerHTML = html;
+
+    /* Update feed panel title */
+    var feedTitle = document.querySelector('.activity-panel .cp-title');
+    if (feedTitle) feedTitle.textContent = 'Registered Users (' + users.length + ')';
+    var feedSub = document.querySelector('.activity-panel .cp-sub');
+    if (feedSub) feedSub.textContent = 'Real users from MongoDB';
+    var feedRefresh = document.querySelector('.activity-panel div[style]');
+    if (feedRefresh) feedRefresh.textContent = 'Auto-refresh 30s';
   }
 
-  /* ── System stub metrics ── */
-  function updateStub() {
-    var api  = 1200 + Math.floor(Math.random() * 800);
-    var resp = 38  + Math.floor(Math.random() * 40);
-    var err  = (Math.random() * 0.4).toFixed(2);
-    var db   = 4   + Math.floor(Math.random() * 4);
-    var up   = '99.' + (90 + Math.floor(Math.random()*10)) + '%';
+  /* ── Simple bar chart for stats ── */
+  function drawStatsBarChart(canvas, labels, values, barColor) {
+    var ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    canvas.width  = canvas.offsetWidth  || 400;
+    canvas.height = canvas.offsetHeight || 180;
+    var W = canvas.width, H = canvas.height;
+    var pad = { t: 12, b: 28, l: 10, r: 10 };
+    var dW = W - pad.l - pad.r;
+    var dH = H - pad.t - pad.b;
+    var n = values.length;
+    var max = Math.max.apply(null, values) || 1;
 
-    setText('stub-api',      api.toLocaleString());
-    setText('stub-api-chg',  '▲ +' + Math.floor(Math.random()*12+1) + '% vs last hour');
-    setText('stub-resp',     resp + 'ms');
-    var rc = el('stub-resp-chg');
-    if (rc) { rc.textContent = resp < 60 ? '▲ Fast' : '▼ Slow'; rc.className = 's-chg ' + (resp < 60 ? 'up' : 'down'); }
-    setText('stub-err',      err + '%');
-    var ec = el('stub-err-chg');
-    if (ec) { ec.textContent = parseFloat(err) < 0.2 ? '▲ Normal' : '▼ Elevated'; ec.className = 's-chg ' + (parseFloat(err) < 0.2 ? 'up' : 'down'); }
-    setText('stub-db',       db + ' / 10');
-    setText('stub-uptime',   up);
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(30,37,56,.8)';
+    ctx.lineWidth = 1;
+    for (var g = 0; g <= 4; g++) {
+      var gy = pad.t + (dH / 4) * g;
+      ctx.beginPath(); ctx.moveTo(pad.l, gy); ctx.lineTo(W - pad.r, gy); ctx.stroke();
+    }
+
+    var bw  = Math.max(2, (dW / n) * 0.62);
+    var gap = (dW / n) * 0.19;
+    for (var i = 0; i < n; i++) {
+      var x  = pad.l + i * (dW / n) + gap;
+      var bh = (values[i] / max) * dH;
+      var y  = pad.t + dH - bh;
+      var grad = ctx.createLinearGradient(0, y, 0, y + bh);
+      grad.addColorStop(0, barColor);
+      grad.addColorStop(1, barColor.replace('ff','44').replace('76','22'));
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, y, bw, bh, [3, 3, 0, 0]);
+      else ctx.rect(x, y, bw, bh);
+      ctx.fill();
+
+      /* value label on top */
+      ctx.fillStyle = 'rgba(200,208,231,.7)';
+      ctx.font = '9px Segoe UI, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      if (values[i] > 0) ctx.fillText(String(values[i]), x + bw / 2, y - 3);
+    }
+
+    ctx.fillStyle = 'rgba(74,82,112,.9)';
+    ctx.font = '9px Segoe UI, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    for (var k = 0; k < n; k++) {
+      ctx.fillText(labels[k], pad.l + k * (dW / n) + gap + bw / 2, H - 6);
+    }
   }
+
+  /* ── Fetch and render all real data ── */
+  function loadRealData() {
+    Promise.all([
+      fetch('/api/admin/stats').then(function(r) { return r.json(); }),
+      fetch('/api/admin/users').then(function(r) { return r.json(); })
+    ]).then(function(results) {
+      var statsRes = results[0];
+      var usersRes = results[1];
+      if (statsRes.ok) renderStats(statsRes);
+      if (usersRes.ok) renderUsers(usersRes.users);
+    }).catch(function(err) {
+      console.error('[Admin] Failed to load real data:', err);
+    });
+  }
+
+  /* ── Range selector (kept for UI compatibility, no-op with real data) ── */
+  window.setRange = function(days, btn) {
+    var tabs = document.querySelectorAll('.range-tab');
+    for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+    if (btn) btn.classList.add('active');
+  };
 
   /* ── Canvas Charts ── */
   var vCtx, sCtx, vData = [], sData = [], chartLabels = [];
@@ -987,46 +950,10 @@
     }
   }
 
-  /* ── Clock ── */
-  function updateClock() {
-    var now = new Date();
-    var t   = String(now.getHours()).padStart(2,'0') + ':' +
-              String(now.getMinutes()).padStart(2,'0') + ':' +
-              String(now.getSeconds()).padStart(2,'0');
-    setText('nav-clock', t);
-  }
-
-  /* ── Range selector ── */
-  window.setRange = function(days, btn) {
-    currentRange = days;
-    var tabs = document.querySelectorAll('.range-tab');
-    for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
-    if (btn) btn.classList.add('active');
-    refresh();
-  };
-
-  /* ── Full refresh ── */
-  function refresh() {
-    var data = buildRange(currentRange);
-    updateMetrics(data);
-    redrawCharts(data);
-    updateFeed();
-    updateStub();
-  }
-
   /* ── Boot ── */
-  seedIfNeeded();
-  trackVisit();
-  initCharts();
-
-  /* small delay to let canvas render at correct size */
   setTimeout(function() {
-    refresh();
-    setInterval(function() {
-      simulateTick();
-      refresh();
-      updateClock();
-    }, 5000);
+    loadRealData();
+    setInterval(loadRealData, 30000);
     updateClock();
     setInterval(updateClock, 1000);
   }, 120);

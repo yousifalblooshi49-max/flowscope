@@ -93,6 +93,9 @@ function requireAdmin(req, res, next) {
     return res.redirect('/login.html');
   }
   if (!req.session.isAdmin) {
+    if (req.path.startsWith('/api/')) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
     return res.status(403).send(
       '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
       '<title>403 Forbidden</title>' +
@@ -182,6 +185,57 @@ app.get('/api/me', requireAuth, (req, res) => {
     username: req.session.username,
     isAdmin:  req.session.isAdmin
   });
+});
+
+/* ─────────────────────────────────────────────
+   ADMIN API ROUTES
+───────────────────────────────────────────── */
+
+/** GET /api/admin/users — return all users from MongoDB */
+app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const users = await User.find({}, {
+      username:      1,
+      isAdmin:       1,
+      hasSubscription: 1,
+      plan:          1,
+      trialUsed:     1,
+      trialStartedAt: 1,
+      trialEndsAt:   1,
+      createdAt:     1
+    }).sort({ createdAt: -1 }).lean();
+    return res.json({ ok: true, users });
+  } catch (err) {
+    console.error('[ADMIN/USERS]', err.message);
+    return res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+/** GET /api/admin/stats — return real summary counts from MongoDB */
+app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const now = new Date();
+    const [totalUsers, adminCount, subscribedUsers, activeTrials, expiredTrials] = await Promise.all([
+      User.countDocuments({}),
+      User.countDocuments({ isAdmin: true }),
+      User.countDocuments({ hasSubscription: true }),
+      User.countDocuments({ trialUsed: true, trialEndsAt: { $gt: now } }),
+      User.countDocuments({ trialUsed: true, trialEndsAt: { $lte: now } })
+    ]);
+    const normalUsers = totalUsers - adminCount;
+    return res.json({
+      ok: true,
+      totalUsers,
+      adminCount,
+      subscribedUsers,
+      activeTrials,
+      expiredTrials,
+      normalUsers
+    });
+  } catch (err) {
+    console.error('[ADMIN/STATS]', err.message);
+    return res.status(500).json({ error: 'Server error.' });
+  }
 });
 
 /* ─────────────────────────────────────────────
