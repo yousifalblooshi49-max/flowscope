@@ -15,6 +15,7 @@ const bcrypt         = require('bcryptjs');
 const cors           = require('cors');
 const connectDB      = require('./config/db');
 const User           = require('./models/User');
+const { fetchLivePrice } = require('./services/marketData');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -327,6 +328,21 @@ app.get('/api/subscription/status', requireAuth, async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+/* ─────────────────────────────────────────────
+   MARKET DATA API
+───────────────────────────────────────────── */
+
+/** GET /api/market/live — returns real-time XAUUSD (Gold) price, no auth required */
+app.get('/api/market/live', async (req, res) => {
+  try {
+    const data = await fetchLivePrice();
+    return res.json({ ok: true, ...data });
+  } catch (err) {
+    console.error('[MARKET/LIVE]', err.message);
+    return res.status(503).json({ ok: false, error: 'Market data temporarily unavailable.' });
   }
 });
 

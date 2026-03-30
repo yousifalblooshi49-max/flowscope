@@ -1228,6 +1228,68 @@ body {
   var tickerBase = Object.assign({}, tickerPrices);
 
   /* ─────────────────────────────────────────────
+     LIVE MARKET DATA (XAUUSD from /api/market/live)
+  ───────────────────────────────────────────── */
+  var _livePrice     = null;   /* last fetched real price */
+  var _livePrevClose = null;   /* previous close for change % */
+  var _liveInitialized = false;
+
+  function fetchLiveMarket() {
+    fetch('/api/market/live')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (!d.ok || !d.price) return;
+        var p = d.price;
+        _livePrice     = p;
+        _livePrevClose = d.prevClose || p;
+
+        /* Update XAU ticker with real price */
+        prevTicker.xau = tickerPrices.xau;
+        tickerPrices.xau = p;
+        if (!_liveInitialized) {
+          tickerBase.xau = _livePrevClose;
+          /* Anchor candle engine to real price on first load */
+          BASE_PRICE = p;
+          candles = [];
+          deltaRing = [];
+          smoothConf = 0;
+          lockedDecision = 'WAIT';
+          lockCounter = 0;
+          _narLock = 0;
+          _narState = '';
+          _narCache = '';
+          seedCandles();
+          _liveInitialized = true;
+        }
+
+        /* Update chart header price display with real price */
+        var cpEl = document.getElementById('chart-price');
+        if (cpEl) {
+          cpEl.textContent = '$' + p.toFixed(2);
+          cpEl.style.color = (p >= _livePrevClose) ? 'var(--green)' : 'var(--red)';
+        }
+
+        /* Update XAU ticker DOM directly */
+        var tkXau = document.getElementById('tk-xau');
+        if (tkXau) {
+          tkXau.textContent = '$' + p.toFixed(2);
+          tkXau.className = 'tick-price ' + (p >= prevTicker.xau ? 'up' : 'down');
+        }
+        var tcXau = document.getElementById('tc-xau');
+        if (tcXau && _livePrevClose) {
+          var chgPct = (((p - _livePrevClose) / _livePrevClose) * 100).toFixed(2);
+          tcXau.textContent = (chgPct >= 0 ? '+' : '') + chgPct + '%';
+          tcXau.className = 'tick-chg ' + (chgPct >= 0 ? 'up' : 'down');
+        }
+      })
+      .catch(function() { /* silently ignore network errors */ });
+  }
+
+  /* Fetch immediately then every 3 seconds */
+  fetchLiveMarket();
+  setInterval(fetchLiveMarket, 3000);
+
+  /* ─────────────────────────────────────────────
      CANDLE ENGINE
   ───────────────────────────────────────────── */
   function seedCandles() {
