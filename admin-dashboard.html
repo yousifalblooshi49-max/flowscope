@@ -1,0 +1,1037 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FlowScope — Admin Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0b0e17;
+    --surface:   #111520;
+    --surface2:  #161b2e;
+    --border:    #1e2538;
+    --border2:   #252d45;
+    --text:      #c8d0e7;
+    --muted:     #4a5270;
+    --green:     #00e676;
+    --red:       #ff1744;
+    --yellow:    #ffd600;
+    --blue:      #448aff;
+    --blue-dim:  rgba(68,138,255,.12);
+    --purple:    #7c4dff;
+    --purple-dim:rgba(124,77,255,.12);
+    --cyan:      #00e5ff;
+    --radius:    10px;
+    --trans:     0.35s ease;
+    --glow-blue: 0 0 18px rgba(68,138,255,.25);
+    --glow-pur:  0 0 18px rgba(124,77,255,.25);
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0 0 60px;
+  }
+
+  /* ── Top Nav ── */
+  nav {
+    width: 100%;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: .03em;
+  }
+  .nav-brand .logo-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--blue);
+    box-shadow: 0 0 8px var(--blue);
+    animation: pulse 1.6s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .nav-links {
+    display: flex;
+    gap: 4px;
+  }
+  .nav-links a {
+    text-decoration: none;
+    color: var(--muted);
+    font-size: .8rem;
+    padding: 6px 14px;
+    border-radius: 7px;
+    transition: background var(--trans), color var(--trans);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .nav-links a:hover,
+  .nav-links a.active {
+    background: var(--blue-dim);
+    color: var(--blue);
+  }
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: .78rem;
+    color: var(--muted);
+  }
+  .admin-badge {
+    background: var(--purple-dim);
+    border: 1px solid rgba(124,77,255,.3);
+    color: var(--purple);
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+    padding: 3px 10px;
+    border-radius: 99px;
+    text-transform: uppercase;
+  }
+
+  /* ── Page Wrapper ── */
+  .page {
+    width: 100%;
+    max-width: 1200px;
+    padding: 28px 20px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  /* ── Section Header ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .section-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: .03em;
+  }
+  .section-title span { color: var(--blue); }
+  .section-sub {
+    font-size: .75rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .range-tabs {
+    display: flex;
+    gap: 4px;
+  }
+  .range-tab {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: .72rem;
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all var(--trans);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .range-tab.active,
+  .range-tab:hover {
+    background: var(--blue-dim);
+    border-color: rgba(68,138,255,.4);
+    color: var(--blue);
+  }
+
+  /* ── Divider ── */
+  .divider {
+    width: 100%;
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+  }
+
+  /* ── Existing Admin Stub ── */
+  .admin-stub {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .stub-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .stub-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .stub-item .s-lbl { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+  .stub-item .s-val { font-size: 1.4rem; font-weight: 800; color: #fff; }
+  .stub-item .s-chg { font-size: .72rem; }
+  .stub-item .s-chg.up   { color: var(--green); }
+  .stub-item .s-chg.down { color: var(--red); }
+
+  /* ── Analytics Section ── */
+  #analytics-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── Metric Cards ── */
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 14px;
+  }
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+    transition: box-shadow var(--trans), border-color var(--trans);
+  }
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--mc-accent, var(--blue));
+    transition: background var(--trans);
+  }
+  .metric-card:hover {
+    box-shadow: var(--glow-blue);
+    border-color: rgba(68,138,255,.3);
+  }
+  .mc-label {
+    font-size: .68rem;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+  }
+  .mc-value {
+    font-size: 2.1rem;
+    font-weight: 900;
+    line-height: 1;
+    color: #fff;
+    transition: color var(--trans);
+  }
+  .mc-footer {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .73rem;
+    color: var(--muted);
+  }
+  .mc-badge {
+    padding: 2px 7px;
+    border-radius: 99px;
+    font-size: .65rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+  }
+  .mc-badge.up   { background: rgba(0,230,118,.12); color: var(--green); }
+  .mc-badge.down { background: rgba(255,23,68,.12);  color: var(--red); }
+  .mc-badge.neu  { background: rgba(68,138,255,.12); color: var(--blue); }
+
+  /* ── Chart Panels ── */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  @media (max-width: 700px) { .charts-row { grid-template-columns: 1fr; } }
+
+  .chart-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: box-shadow var(--trans);
+  }
+  .chart-panel:hover { box-shadow: var(--glow-pur); border-color: rgba(124,77,255,.25); }
+  .cp-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .cp-title { font-size: .82rem; font-weight: 700; color: #fff; }
+  .cp-sub   { font-size: .7rem; color: var(--muted); margin-top: 2px; }
+  .cp-stat  {
+    font-size: .72rem;
+    color: var(--muted);
+    text-align: right;
+  }
+  .cp-stat strong { color: var(--blue); font-size: .9rem; }
+  canvas.chart-canvas {
+    width: 100% !important;
+    height: 180px !important;
+    display: block;
+  }
+
+  /* ── Activity Feed ── */
+  .activity-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    max-height: 240px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .activity-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: .78rem;
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .act-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .act-dot.visit  { background: var(--blue); }
+  .act-dot.signup { background: var(--green); }
+  .act-dot.active { background: var(--purple); }
+  .act-text { flex: 1; color: var(--text); }
+  .act-time { color: var(--muted); font-size: .7rem; white-space: nowrap; }
+
+  /* ── Conversion Bar ── */
+  .conv-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .conv-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .conv-label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: .75rem;
+  }
+  .conv-label-row span:first-child { color: var(--text); }
+  .conv-label-row span:last-child  { color: var(--blue); font-weight: 700; }
+  .conv-track {
+    width: 100%;
+    height: 8px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .conv-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 1s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* ── Mobile ── */
+  @media (max-width: 560px) {
+    .page { padding: 16px 12px 0; gap: 18px; }
+    nav { padding: 0 14px; }
+    .nav-links { display: none; }
+    .metric-grid { grid-template-columns: 1fr 1fr; }
+    .mc-value { font-size: 1.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav>
+  <div class="nav-brand">
+    <div class="logo-dot"></div>
+    FlowScope <span style="color:var(--muted);font-weight:400;font-size:.85rem;margin-left:2px">Admin</span>
+  </div>
+  <div class="nav-links">
+    <a href="#overview">Overview</a>
+    <a href="#analytics" class="active">Analytics</a>
+    <a href="#users">Users</a>
+    <a href="#settings">Settings</a>
+  </div>
+  <div class="nav-right">
+    <span id="nav-clock">--:--:--</span>
+    <span class="admin-badge">Admin</span>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- ══════════════════════════════════════════
+       EXISTING ADMIN CONTENT (stub preserved)
+  ══════════════════════════════════════════ -->
+  <div>
+    <div class="section-header">
+      <div>
+        <div class="section-title">System <span>Overview</span></div>
+        <div class="section-sub">Platform health and operational metrics</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-stub" id="existing-admin-content">
+    <div class="stub-grid">
+      <div class="stub-item">
+        <span class="s-lbl">Server Status</span>
+        <span class="s-val" style="color:var(--green);font-size:1rem;margin-top:4px;">● ONLINE</span>
+        <span class="s-chg up">All systems operational</span>
+      </div>
+      <div class="stub-item">
+        <span class="s-lbl">API Requests / hr</span>
+        <span class="s-val" id="stub-api">--</span>
+        <span class="s-chg up" id="stub-api-chg">--</span>
+      </div>
+      <div class="stub-item">
+        <span class="s-lbl">Avg Response (ms)</span>
+        <span class="s-val" id="stub-resp">--</span>
+        <span class="s-chg" id="stub-resp-chg">--</span>
+      </div>
+      <div class="stub-item">
+        <span class="s-lbl">Error Rate</span>
+        <span class="s-val" id="stub-err">--</span>
+        <span class="s-chg" id="stub-err-chg">--</span>
+      </div>
+      <div class="stub-item">
+        <span class="s-lbl">DB Connections</span>
+        <span class="s-val" id="stub-db">--</span>
+        <span class="s-chg up">Healthy</span>
+      </div>
+      <div class="stub-item">
+        <span class="s-lbl">Uptime</span>
+        <span class="s-val" id="stub-uptime">--</span>
+        <span class="s-chg up">Since last deploy</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ══════════════════════════════════════════
+       ANALYTICS SECTION — NEW (safe to remove)
+  ══════════════════════════════════════════ -->
+  <div id="analytics-section">
+
+    <!-- Section Header -->
+    <div class="section-header">
+      <div>
+        <div class="section-title">Visitor &amp; Subscriber <span>Analytics</span></div>
+        <div class="section-sub">Real-time tracking via localStorage — updates every 5 seconds</div>
+      </div>
+      <div class="range-tabs">
+        <button class="range-tab active" onclick="setRange(7,this)">7D</button>
+        <button class="range-tab" onclick="setRange(14,this)">14D</button>
+        <button class="range-tab" onclick="setRange(30,this)">30D</button>
+      </div>
+    </div>
+
+    <!-- Top Metric Cards -->
+    <div class="metric-grid">
+      <div class="metric-card" style="--mc-accent:var(--blue)">
+        <span class="mc-label">Total Visitors</span>
+        <div class="mc-value" id="mc-visitors">--</div>
+        <div class="mc-footer">
+          <span class="mc-badge up" id="mc-visitors-badge">--</span>
+          <span>vs previous period</span>
+        </div>
+      </div>
+      <div class="metric-card" style="--mc-accent:var(--green)">
+        <span class="mc-label">Total Signups</span>
+        <div class="mc-value" id="mc-signups">--</div>
+        <div class="mc-footer">
+          <span class="mc-badge up" id="mc-signups-badge">--</span>
+          <span>new registrations</span>
+        </div>
+      </div>
+      <div class="metric-card" style="--mc-accent:var(--purple)">
+        <span class="mc-label">Active Users</span>
+        <div class="mc-value" id="mc-active">--</div>
+        <div class="mc-footer">
+          <span class="mc-badge neu" id="mc-active-badge">--</span>
+          <span>last 24 hours</span>
+        </div>
+      </div>
+      <div class="metric-card" style="--mc-accent:var(--cyan)">
+        <span class="mc-label">Conversion Rate</span>
+        <div class="mc-value" id="mc-conv">--%</div>
+        <div class="mc-footer">
+          <span class="mc-badge" id="mc-conv-badge" style="background:rgba(0,229,255,.1);color:var(--cyan)">--</span>
+          <span>visitors → signups</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="charts-row">
+
+      <!-- Visitor Line Chart -->
+      <div class="chart-panel">
+        <div class="cp-header">
+          <div>
+            <div class="cp-title">Visitor Traffic</div>
+            <div class="cp-sub">Daily unique visits over selected period</div>
+          </div>
+          <div class="cp-stat">Total: <strong id="chart-visitor-total">--</strong></div>
+        </div>
+        <canvas id="visitorChart" class="chart-canvas"></canvas>
+      </div>
+
+      <!-- Signup Bar Chart -->
+      <div class="chart-panel">
+        <div class="cp-header">
+          <div>
+            <div class="cp-title">User Signups</div>
+            <div class="cp-sub">New registrations per day</div>
+          </div>
+          <div class="cp-stat">Total: <strong id="chart-signup-total">--</strong></div>
+        </div>
+        <canvas id="signupChart" class="chart-canvas"></canvas>
+      </div>
+
+    </div>
+
+    <!-- Bottom Row: Conversion Funnel + Activity Feed -->
+    <div class="charts-row">
+
+      <!-- Conversion Funnel -->
+      <div class="conv-panel">
+        <div class="cp-header">
+          <div>
+            <div class="cp-title">Conversion Funnel</div>
+            <div class="cp-sub">Visitor → Signup → Active pipeline</div>
+          </div>
+        </div>
+        <div class="conv-row">
+          <div class="conv-label-row"><span>Visitors</span><span id="funnel-v">--</span></div>
+          <div class="conv-track"><div class="conv-fill" id="funnel-bar-v" style="width:100%;background:var(--blue)"></div></div>
+        </div>
+        <div class="conv-row">
+          <div class="conv-label-row"><span>Signups</span><span id="funnel-s">--</span></div>
+          <div class="conv-track"><div class="conv-fill" id="funnel-bar-s" style="width:0%;background:var(--green)"></div></div>
+        </div>
+        <div class="conv-row">
+          <div class="conv-label-row"><span>Active Users</span><span id="funnel-a">--</span></div>
+          <div class="conv-track"><div class="conv-fill" id="funnel-bar-a" style="width:0%;background:var(--purple)"></div></div>
+        </div>
+        <div class="conv-row">
+          <div class="conv-label-row"><span>Conversion Rate</span><span id="funnel-c">--%</span></div>
+          <div class="conv-track"><div class="conv-fill" id="funnel-bar-c" style="width:0%;background:var(--cyan)"></div></div>
+        </div>
+      </div>
+
+      <!-- Live Activity Feed -->
+      <div class="activity-panel">
+        <div class="cp-header">
+          <div>
+            <div class="cp-title">Live Activity Feed</div>
+            <div class="cp-sub">Recent tracked events</div>
+          </div>
+          <div style="font-size:.68rem;color:var(--muted)">Auto-refresh 5s</div>
+        </div>
+        <div class="activity-list" id="activity-feed"></div>
+      </div>
+
+    </div>
+
+  </div>
+  <!-- END #analytics-section -->
+
+</div><!-- .page -->
+
+<script>
+/* ================================================================
+   FLOWSCOPE ADMIN — ANALYTICS ENGINE
+   Isolated module. Safe to remove by deleting #analytics-section
+   and this <script> block.
+================================================================ */
+(function () {
+  'use strict';
+
+  /* ── Storage keys ── */
+  var K = {
+    visits:   'fs_visits',
+    signups:  'fs_signups',
+    active:   'fs_active',
+    log:      'fs_event_log',
+    seed:     'fs_seeded'
+  };
+
+  /* ── Range state ── */
+  var currentRange = 7;
+
+  /* ── Helpers ── */
+  function ls(key, def) {
+    try { var v = localStorage.getItem(key); return v !== null ? JSON.parse(v) : def; }
+    catch(e) { return def; }
+  }
+  function lsSet(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+  }
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth()+1).padStart(2,'0') + '-' +
+      String(d.getDate()).padStart(2,'0');
+  }
+  function dateStr(daysAgo) {
+    var d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return d.getFullYear() + '-' +
+      String(d.getMonth()+1).padStart(2,'0') + '-' +
+      String(d.getDate()).padStart(2,'0');
+  }
+  function shortDate(str) {
+    var p = str.split('-');
+    return p[1] + '/' + p[2];
+  }
+  function el(id) { return document.getElementById(id); }
+  function setText(id, v) { var e=el(id); if(e) e.textContent=v; }
+  function fmtNum(n) { return n >= 1000 ? (n/1000).toFixed(1)+'K' : String(n); }
+
+  /* ── Seed realistic historical data if first run ── */
+  function seedIfNeeded() {
+    if (ls(K.seed, false)) return;
+    var visits  = ls(K.visits, {});
+    var signups = ls(K.signups, {});
+    var active  = ls(K.active, {});
+    var log     = ls(K.log, []);
+
+    for (var i = 30; i >= 0; i--) {
+      var d = dateStr(i);
+      var v = 80 + Math.floor(Math.random() * 220);
+      var s = Math.floor(v * (0.04 + Math.random() * 0.08));
+      var a = Math.floor(s * (0.5 + Math.random() * 0.4));
+      visits[d]  = (visits[d]  || 0) + v;
+      signups[d] = (signups[d] || 0) + s;
+      active[d]  = (active[d]  || 0) + a;
+    }
+
+    /* seed some log entries */
+    var types = ['visit','signup','active'];
+    var msgs  = {
+      visit:  ['New visitor from organic search','Page view: /dashboard','Referral visit: twitter','Direct visit recorded'],
+      signup: ['New user registered','Account created via email','Signup completed','New subscriber added'],
+      active: ['User session started','Returning user active','Pro user logged in','User accessed flow engine']
+    };
+    for (var j = 0; j < 20; j++) {
+      var t = types[Math.floor(Math.random()*3)];
+      var mArr = msgs[t];
+      var ago = Math.floor(Math.random() * 3600);
+      log.push({ type: t, msg: mArr[Math.floor(Math.random()*mArr.length)], ts: Date.now() - ago*1000 });
+    }
+    log.sort(function(a,b){ return b.ts - a.ts; });
+
+    lsSet(K.visits,  visits);
+    lsSet(K.signups, signups);
+    lsSet(K.active,  active);
+    lsSet(K.log,     log.slice(0, 60));
+    lsSet(K.seed,    true);
+  }
+
+  /* ── Track current page visit ── */
+  function trackVisit() {
+    var visits = ls(K.visits, {});
+    var d = todayStr();
+    visits[d] = (visits[d] || 0) + 1;
+    lsSet(K.visits, visits);
+    addLog('visit', 'Admin dashboard visited');
+  }
+
+  /* ── Simulate live trickle (replaces real-time backend events) ── */
+  function simulateTick() {
+    var now  = Date.now();
+    var d    = todayStr();
+    var visits  = ls(K.visits, {});
+    var signups = ls(K.signups, {});
+    var active  = ls(K.active, {});
+    var log     = ls(K.log, []);
+
+    /* random small increments */
+    if (Math.random() < 0.7) { visits[d]  = (visits[d]  || 0) + Math.floor(Math.random()*3+1); }
+    if (Math.random() < 0.2) { signups[d] = (signups[d] || 0) + 1; addLog('signup','New user registered'); }
+    if (Math.random() < 0.4) { active[d]  = (active[d]  || 0) + Math.floor(Math.random()*2+1); }
+
+    lsSet(K.visits,  visits);
+    lsSet(K.signups, signups);
+    lsSet(K.active,  active);
+  }
+
+  function addLog(type, msg) {
+    var log = ls(K.log, []);
+    log.unshift({ type: type, msg: msg, ts: Date.now() });
+    lsSet(K.log, log.slice(0, 60));
+  }
+
+  /* ── Build date range arrays ── */
+  function buildRange(days) {
+    var labels   = [];
+    var visitArr = [];
+    var signArr  = [];
+    var actArr   = [];
+    var visits  = ls(K.visits, {});
+    var signups = ls(K.signups, {});
+    var active  = ls(K.active, {});
+
+    for (var i = days - 1; i >= 0; i--) {
+      var d = dateStr(i);
+      labels.push(shortDate(d));
+      visitArr.push(visits[d]  || 0);
+      signArr.push(signups[d]  || 0);
+      actArr.push(active[d]    || 0);
+    }
+    return { labels: labels, visits: visitArr, signups: signArr, active: actArr };
+  }
+
+  function sumArr(arr) { return arr.reduce(function(a,b){ return a+b; }, 0); }
+
+  /* ── Metric Cards ── */
+  function updateMetrics(data) {
+    var totalV = sumArr(data.visits);
+    var totalS = sumArr(data.signups);
+    var totalA = sumArr(data.active);
+    var conv   = totalV > 0 ? ((totalS / totalV) * 100).toFixed(1) : '0.0';
+
+    /* half-period comparison */
+    var half   = Math.floor(data.visits.length / 2);
+    var prevV  = sumArr(data.visits.slice(0, half));
+    var currV  = sumArr(data.visits.slice(half));
+    var vChg   = prevV > 0 ? (((currV - prevV) / prevV) * 100).toFixed(1) : '0.0';
+    var prevS  = sumArr(data.signups.slice(0, half));
+    var currS  = sumArr(data.signups.slice(half));
+    var sChg   = prevS > 0 ? (((currS - prevS) / prevS) * 100).toFixed(1) : '0.0';
+
+    setText('mc-visitors', fmtNum(totalV));
+    setText('mc-signups',  fmtNum(totalS));
+    setText('mc-active',   fmtNum(totalA));
+    setText('mc-conv',     conv + '%');
+
+    var vBadge = el('mc-visitors-badge');
+    if (vBadge) {
+      vBadge.textContent = (vChg >= 0 ? '▲ +' : '▼ ') + vChg + '%';
+      vBadge.className = 'mc-badge ' + (vChg >= 0 ? 'up' : 'down');
+    }
+    var sBadge = el('mc-signups-badge');
+    if (sBadge) {
+      sBadge.textContent = (sChg >= 0 ? '▲ +' : '▼ ') + sChg + '%';
+      sBadge.className = 'mc-badge ' + (sChg >= 0 ? 'up' : 'down');
+    }
+    var aBadge = el('mc-active-badge');
+    if (aBadge) {
+      aBadge.textContent = fmtNum(totalA) + ' sessions';
+      aBadge.className = 'mc-badge neu';
+    }
+    var cBadge = el('mc-conv-badge');
+    if (cBadge) {
+      cBadge.textContent = conv + '% rate';
+      cBadge.style.background = 'rgba(0,229,255,.1)';
+      cBadge.style.color = 'var(--cyan)';
+    }
+
+    setText('chart-visitor-total', fmtNum(totalV));
+    setText('chart-signup-total',  fmtNum(totalS));
+
+    /* funnel */
+    setText('funnel-v', fmtNum(totalV));
+    setText('funnel-s', fmtNum(totalS));
+    setText('funnel-a', fmtNum(totalA));
+    setText('funnel-c', conv + '%');
+    var fv = el('funnel-bar-v'); if(fv) fv.style.width = '100%';
+    var fs = el('funnel-bar-s'); if(fs) fs.style.width = (totalV > 0 ? Math.min((totalS/totalV)*100,100) : 0) + '%';
+    var fa = el('funnel-bar-a'); if(fa) fa.style.width = (totalV > 0 ? Math.min((totalA/totalV)*100,100) : 0) + '%';
+    var fc = el('funnel-bar-c'); if(fc) fc.style.width = Math.min(parseFloat(conv), 100) + '%';
+  }
+
+  /* ── Activity Feed ── */
+  function updateFeed() {
+    var feed = el('activity-feed');
+    if (!feed) return;
+    var log = ls(K.log, []);
+    var html = '';
+    var shown = log.slice(0, 12);
+    for (var i = 0; i < shown.length; i++) {
+      var e = shown[i];
+      var ago = Math.round((Date.now() - e.ts) / 1000);
+      var agoStr = ago < 60 ? ago + 's ago'
+        : ago < 3600 ? Math.floor(ago/60) + 'm ago'
+        : Math.floor(ago/3600) + 'h ago';
+      html += '<div class="activity-item">' +
+        '<div class="act-dot ' + e.type + '"></div>' +
+        '<div class="act-text">' + e.msg + '</div>' +
+        '<div class="act-time">' + agoStr + '</div>' +
+        '</div>';
+    }
+    feed.innerHTML = html;
+  }
+
+  /* ── System stub metrics ── */
+  function updateStub() {
+    var api  = 1200 + Math.floor(Math.random() * 800);
+    var resp = 38  + Math.floor(Math.random() * 40);
+    var err  = (Math.random() * 0.4).toFixed(2);
+    var db   = 4   + Math.floor(Math.random() * 4);
+    var up   = '99.' + (90 + Math.floor(Math.random()*10)) + '%';
+
+    setText('stub-api',      api.toLocaleString());
+    setText('stub-api-chg',  '▲ +' + Math.floor(Math.random()*12+1) + '% vs last hour');
+    setText('stub-resp',     resp + 'ms');
+    var rc = el('stub-resp-chg');
+    if (rc) { rc.textContent = resp < 60 ? '▲ Fast' : '▼ Slow'; rc.className = 's-chg ' + (resp < 60 ? 'up' : 'down'); }
+    setText('stub-err',      err + '%');
+    var ec = el('stub-err-chg');
+    if (ec) { ec.textContent = parseFloat(err) < 0.2 ? '▲ Normal' : '▼ Elevated'; ec.className = 's-chg ' + (parseFloat(err) < 0.2 ? 'up' : 'down'); }
+    setText('stub-db',       db + ' / 10');
+    setText('stub-uptime',   up);
+  }
+
+  /* ── Canvas Charts ── */
+  var vCtx, sCtx, vData = [], sData = [], chartLabels = [];
+
+  function initCharts() {
+    var vc = el('visitorChart');
+    var sc = el('signupChart');
+    if (vc) vCtx = vc.getContext('2d');
+    if (sc) sCtx = sc.getContext('2d');
+    window.addEventListener('resize', function() {
+      setTimeout(function() { redrawCharts(buildRange(currentRange)); }, 80);
+    });
+  }
+
+  function redrawCharts(data) {
+    chartLabels = data.labels;
+    vData = data.visits;
+    sData = data.signups;
+    drawLineChart(vCtx, el('visitorChart'), data.labels, data.visits, '#448aff', 'rgba(68,138,255,0.13)');
+    drawBarChart(sCtx,  el('signupChart'),  data.labels, data.signups, '#00e676', 'rgba(0,230,118,0.18)');
+  }
+
+  function sizeCanvas(canvas) {
+    if (!canvas) return;
+    canvas.width  = canvas.offsetWidth  || 400;
+    canvas.height = canvas.offsetHeight || 180;
+  }
+
+  function drawLineChart(ctx, canvas, labels, values, stroke, fill) {
+    if (!ctx || !canvas) return;
+    sizeCanvas(canvas);
+    var W = canvas.width, H = canvas.height;
+    var pad = { t: 12, b: 28, l: 10, r: 10 };
+    var dW  = W - pad.l - pad.r;
+    var dH  = H - pad.t - pad.b;
+    var n   = values.length;
+    var max = Math.max.apply(null, values) || 1;
+
+    ctx.clearRect(0, 0, W, H);
+
+    /* grid */
+    ctx.strokeStyle = 'rgba(30,37,56,.8)';
+    ctx.lineWidth   = 1;
+    for (var g = 0; g <= 4; g++) {
+      var gy = pad.t + (dH / 4) * g;
+      ctx.beginPath(); ctx.moveTo(pad.l, gy); ctx.lineTo(W - pad.r, gy); ctx.stroke();
+    }
+
+    if (n < 2) return;
+    var step = dW / (n - 1);
+
+    function xp(i) { return pad.l + i * step; }
+    function yp(v) { return pad.t + dH - (v / max) * dH; }
+
+    /* fill */
+    var grad = ctx.createLinearGradient(0, pad.t, 0, pad.t + dH);
+    grad.addColorStop(0, fill.replace('0.13', '0.22'));
+    grad.addColorStop(1, fill.replace('0.13', '0.01'));
+    ctx.beginPath();
+    ctx.moveTo(xp(0), yp(values[0]));
+    for (var i = 1; i < n; i++) {
+      var cx1 = xp(i-1) + step/2, cy1 = yp(values[i-1]);
+      var cx2 = xp(i)   - step/2, cy2 = yp(values[i]);
+      ctx.bezierCurveTo(cx1, cy1, cx2, cy2, xp(i), yp(values[i]));
+    }
+    ctx.lineTo(xp(n-1), pad.t + dH);
+    ctx.lineTo(xp(0),   pad.t + dH);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    /* line */
+    ctx.beginPath();
+    ctx.moveTo(xp(0), yp(values[0]));
+    for (var j = 1; j < n; j++) {
+      var bx1 = xp(j-1) + step/2, by1 = yp(values[j-1]);
+      var bx2 = xp(j)   - step/2, by2 = yp(values[j]);
+      ctx.bezierCurveTo(bx1, by1, bx2, by2, xp(j), yp(values[j]));
+    }
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth   = 2;
+    ctx.stroke();
+
+    /* dots on last point */
+    ctx.beginPath();
+    ctx.arc(xp(n-1), yp(values[n-1]), 4, 0, Math.PI*2);
+    ctx.fillStyle = stroke;
+    ctx.fill();
+
+    /* x-axis labels */
+    ctx.fillStyle  = 'rgba(74,82,112,.9)';
+    ctx.font       = '9px Segoe UI, system-ui, sans-serif';
+    ctx.textAlign  = 'center';
+    var step2 = Math.max(1, Math.floor(n / 7));
+    for (var k = 0; k < n; k += step2) {
+      ctx.fillText(labels[k], xp(k), H - 6);
+    }
+  }
+
+  function drawBarChart(ctx, canvas, labels, values, barColor, barFill) {
+    if (!ctx || !canvas) return;
+    sizeCanvas(canvas);
+    var W = canvas.width, H = canvas.height;
+    var pad = { t: 12, b: 28, l: 10, r: 10 };
+    var dW  = W - pad.l - pad.r;
+    var dH  = H - pad.t - pad.b;
+    var n   = values.length;
+    var max = Math.max.apply(null, values) || 1;
+
+    ctx.clearRect(0, 0, W, H);
+
+    /* grid */
+    ctx.strokeStyle = 'rgba(30,37,56,.8)';
+    ctx.lineWidth   = 1;
+    for (var g = 0; g <= 4; g++) {
+      var gy = pad.t + (dH / 4) * g;
+      ctx.beginPath(); ctx.moveTo(pad.l, gy); ctx.lineTo(W - pad.r, gy); ctx.stroke();
+    }
+
+    var bw   = Math.max(2, (dW / n) * 0.62);
+    var gap  = (dW / n) * 0.19;
+
+    for (var i = 0; i < n; i++) {
+      var x  = pad.l + i * (dW / n) + gap;
+      var bh = (values[i] / max) * dH;
+      var y  = pad.t + dH - bh;
+
+      /* bar glow */
+      var grad = ctx.createLinearGradient(0, y, 0, y + bh);
+      grad.addColorStop(0, barColor);
+      grad.addColorStop(1, barFill);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(x, y, bw, bh, [3, 3, 0, 0])
+                    : ctx.rect(x, y, bw, bh);
+      ctx.fill();
+    }
+
+    /* x-axis labels */
+    ctx.fillStyle = 'rgba(74,82,112,.9)';
+    ctx.font      = '9px Segoe UI, system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    var step2 = Math.max(1, Math.floor(n / 7));
+    for (var k = 0; k < n; k += step2) {
+      ctx.fillText(labels[k], pad.l + k * (dW / n) + gap + bw/2, H - 6);
+    }
+  }
+
+  /* ── Clock ── */
+  function updateClock() {
+    var now = new Date();
+    var t   = String(now.getHours()).padStart(2,'0') + ':' +
+              String(now.getMinutes()).padStart(2,'0') + ':' +
+              String(now.getSeconds()).padStart(2,'0');
+    setText('nav-clock', t);
+  }
+
+  /* ── Range selector ── */
+  window.setRange = function(days, btn) {
+    currentRange = days;
+    var tabs = document.querySelectorAll('.range-tab');
+    for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+    if (btn) btn.classList.add('active');
+    refresh();
+  };
+
+  /* ── Full refresh ── */
+  function refresh() {
+    var data = buildRange(currentRange);
+    updateMetrics(data);
+    redrawCharts(data);
+    updateFeed();
+    updateStub();
+  }
+
+  /* ── Boot ── */
+  seedIfNeeded();
+  trackVisit();
+  initCharts();
+
+  /* small delay to let canvas render at correct size */
+  setTimeout(function() {
+    refresh();
+    setInterval(function() {
+      simulateTick();
+      refresh();
+      updateClock();
+    }, 5000);
+    updateClock();
+    setInterval(updateClock, 1000);
+  }, 120);
+
+})();
+</script>
+</body>
+</html>

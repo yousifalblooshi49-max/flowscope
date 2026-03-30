@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FlowScope — Choose Your Flow</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue:    #1a6fff;
+    --blue-glow: rgba(26,111,255,0.55);
+    --purple:  #7c3aed;
+    --orange:  #f97316;
+    --orange-glow: rgba(249,115,22,0.55);
+    --gold:    #f59e0b;
+    --text:    #f0f0f0;
+    --muted:   #9ca3af;
+    --card-bg: rgba(10,12,30,0.82);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+    background: #050714;
+  }
+
+  /* ── ANIMATED BACKGROUND ─────────────────────────── */
+  .bg-scene {
+    position: fixed; inset: 0; z-index: 0;
+    background:
+      radial-gradient(ellipse 120% 80% at 50% 0%,   rgba(100,20,200,0.55) 0%, transparent 65%),
+      radial-gradient(ellipse 80%  60% at 20% 60%,  rgba(26,111,255,0.35) 0%, transparent 60%),
+      radial-gradient(ellipse 70%  50% at 80% 40%,  rgba(249,115,22,0.30) 0%, transparent 60%),
+      linear-gradient(180deg, #050714 0%, #0a0520 50%, #0d0a1a 100%);
+    animation: bgPulse 8s ease-in-out infinite alternate;
+  }
+  @keyframes bgPulse {
+    0%   { filter: brightness(1); }
+    100% { filter: brightness(1.12); }
+  }
+
+  /* City skyline silhouette */
+  .bg-city {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 0;
+    height: 260px;
+    background:
+      linear-gradient(to top, rgba(5,7,20,0.95) 0%, transparent 100%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 260' preserveAspectRatio='none'%3E%3Cpath fill='rgba(10,15,40,0.9)' d='M0,260 L0,180 L40,180 L40,120 L60,120 L60,100 L80,100 L80,80 L100,80 L100,60 L120,60 L120,80 L140,80 L140,40 L160,40 L160,80 L180,80 L180,100 L200,100 L200,60 L220,60 L220,40 L240,40 L240,60 L260,60 L260,80 L280,80 L280,120 L300,120 L300,100 L320,100 L320,80 L340,80 L340,60 L360,60 L360,40 L380,40 L380,60 L400,60 L400,100 L420,100 L420,80 L440,80 L440,60 L460,60 L460,80 L480,80 L480,100 L500,100 L500,80 L520,80 L520,60 L540,60 L540,40 L560,40 L560,60 L580,60 L580,80 L600,80 L600,100 L620,100 L620,80 L640,80 L640,60 L660,60 L660,40 L680,40 L680,60 L700,60 L700,80 L720,80 L720,100 L740,100 L740,80 L760,80 L760,60 L780,60 L780,40 L800,40 L800,60 L820,60 L820,80 L840,80 L840,100 L860,100 L860,80 L880,80 L880,60 L900,60 L900,40 L920,40 L920,60 L940,60 L940,80 L960,80 L960,100 L980,100 L980,80 L1000,80 L1000,60 L1020,60 L1020,40 L1040,40 L1040,60 L1060,60 L1060,80 L1080,80 L1080,100 L1100,100 L1100,80 L1120,80 L1120,60 L1140,60 L1140,80 L1160,80 L1160,100 L1180,100 L1180,80 L1200,80 L1200,60 L1220,60 L1220,40 L1240,40 L1240,60 L1260,60 L1260,80 L1280,80 L1280,120 L1300,120 L1300,100 L1320,100 L1320,80 L1340,80 L1340,100 L1360,100 L1360,140 L1380,140 L1380,180 L1440,180 L1440,260 Z'/%3E%3C/svg%3E") bottom/cover no-repeat;
+  }
+
+  /* Candlestick overlay */
+  .bg-candles {
+    position: fixed; inset: 0; z-index: 0; opacity: 0.07;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(26,111,255,0.4) 0px, rgba(26,111,255,0.4) 1px, transparent 1px, transparent 28px),
+      repeating-linear-gradient(0deg,  rgba(26,111,255,0.2) 0px, rgba(26,111,255,0.2) 1px, transparent 1px, transparent 28px);
+  }
+
+  /* ── HEADER ──────────────────────────────────────── */
+  header {
+    position: relative; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 40px;
+    background: rgba(5,7,20,0.75);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(26,111,255,0.18);
+  }
+
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 1.5rem; font-weight: 700; letter-spacing: 0.5px;
+    color: #fff; text-decoration: none;
+  }
+  .logo svg { width: 36px; height: 36px; }
+
+  .header-right {
+    display: flex; align-items: center; gap: 16px;
+  }
+
+  .lang-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--text); padding: 7px 14px; border-radius: 6px;
+    font-size: 0.85rem; cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .lang-btn:hover { border-color: var(--blue); }
+
+  .login-btn {
+    background: var(--blue);
+    color: #fff; border: none;
+    padding: 8px 22px; border-radius: 6px;
+    font-size: 0.9rem; font-weight: 600; cursor: pointer;
+    transition: background 0.2s, box-shadow 0.2s;
+  }
+  .login-btn:hover {
+    background: #1557d4;
+    box-shadow: 0 0 16px var(--blue-glow);
+  }
+
+  /* ── MAIN CONTENT ────────────────────────────────── */
+  main {
+    position: relative; z-index: 10;
+    padding: 60px 20px 100px;
+    max-width: 1200px; margin: 0 auto;
+  }
+
+  /* ── HERO ────────────────────────────────────────── */
+  .hero {
+    text-align: center; margin-bottom: 48px;
+  }
+  .hero h1 {
+    font-size: clamp(2.4rem, 5vw, 4rem);
+    font-weight: 800; letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #fff 30%, #a78bfa 70%, #60a5fa 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+  }
+  .hero p {
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    color: var(--muted);
+  }
+  .hero p strong { color: #fff; }
+
+  /* ── FREE TRIAL BANNER ───────────────────────────── */
+  .trial-banner {
+    text-align: center; margin-bottom: 52px;
+  }
+  .trial-banner h2 {
+    font-size: clamp(1.3rem, 3vw, 1.8rem);
+    font-weight: 700; color: #fff; margin-bottom: 6px;
+  }
+  .trial-banner h2 span { color: #facc15; }
+  .trial-banner p {
+    color: var(--muted); font-size: 0.95rem; margin-bottom: 20px;
+  }
+
+  /* Countdown */
+  .countdown {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(10,12,30,0.9);
+    border: 1px solid rgba(26,111,255,0.4);
+    border-radius: 12px; padding: 12px 28px;
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 800; letter-spacing: 4px; color: #fff;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 0 30px rgba(26,111,255,0.25);
+  }
+  .countdown .sep { color: var(--blue); animation: blink 1s step-end infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* ── PLANS GRID ──────────────────────────────────── */
+  .plans {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  /* ── PLAN CARD BASE ──────────────────────────────── */
+  .plan-card {
+    background: var(--card-bg);
+    border-radius: 16px;
+    padding: 32px 28px;
+    border: 1px solid rgba(255,255,255,0.08);
+    display: flex; flex-direction: column; gap: 20px;
+    transition: transform 0.25s, box-shadow 0.25s;
+  }
+  .plan-card:hover { transform: translateY(-4px); }
+
+  /* ── STARTER (BLUE) ──────────────────────────────── */
+  .plan-starter {
+    border-color: rgba(26,111,255,0.5);
+    box-shadow: 0 0 30px rgba(26,111,255,0.15), inset 0 0 60px rgba(26,111,255,0.05);
+  }
+  .plan-starter:hover {
+    box-shadow: 0 0 50px rgba(26,111,255,0.35), inset 0 0 60px rgba(26,111,255,0.08);
+  }
+
+  /* ── PRO (CENTER / HIGHLIGHTED) ─────────────────── */
+  .plan-pro {
+    border-color: rgba(26,111,255,0.7);
+    box-shadow: 0 0 40px rgba(26,111,255,0.25), inset 0 0 80px rgba(26,111,255,0.07);
+    background: rgba(8,14,40,0.92);
+    position: relative;
+    padding-top: 20px;
+  }
+  .plan-pro:hover {
+    box-shadow: 0 0 70px rgba(26,111,255,0.45), inset 0 0 80px rgba(26,111,255,0.10);
+  }
+
+  /* ── ELITE (ORANGE) ──────────────────────────────── */
+  .plan-elite {
+    border-color: rgba(249,115,22,0.6);
+    box-shadow: 0 0 30px rgba(249,115,22,0.18), inset 0 0 60px rgba(249,115,22,0.05);
+    background: rgba(20,8,4,0.88);
+  }
+  .plan-elite:hover {
+    box-shadow: 0 0 55px rgba(249,115,22,0.40), inset 0 0 60px rgba(249,115,22,0.10);
+  }
+
+  /* ── CARD HEADER ─────────────────────────────────── */
+  .card-top { text-align: center; }
+
+  .most-popular {
+    display: inline-block;
+    background: var(--gold);
+    color: #1a1000;
+    font-size: 0.72rem; font-weight: 800;
+    letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 4px 14px; border-radius: 4px;
+    margin-bottom: 10px;
+  }
+
+  .elite-label {
+    font-size: 0.85rem; font-weight: 700;
+    color: var(--orange); letter-spacing: 1px;
+    text-transform: uppercase; margin-bottom: 8px;
+  }
+
+  .plan-name {
+    font-size: 1.6rem; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .plan-starter .plan-name { color: #60a5fa; }
+  .plan-pro     .plan-name { color: #93c5fd; }
+  .plan-elite   .plan-name { color: var(--orange); }
+
+  .plan-name svg { width: 26px; height: 26px; }
+
+  .price {
+    margin-top: 10px;
+    font-size: clamp(2.4rem, 4vw, 3.2rem);
+    font-weight: 900; line-height: 1;
+  }
+  .plan-starter .price { color: #fff; }
+  .plan-pro     .price { color: #fff; }
+  .plan-elite   .price { color: var(--orange); }
+
+  .price span { font-size: 1rem; font-weight: 500; color: var(--muted); }
+
+  /* ── FEATURES LIST ───────────────────────────────── */
+  .features { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+  .features li {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 0.92rem; line-height: 1.4;
+  }
+  .features li::before {
+    content: '✓';
+    font-weight: 800; font-size: 0.95rem;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .plan-starter .features li::before { color: #60a5fa; }
+  .plan-pro     .features li::before { color: #60a5fa; }
+  .plan-elite   .features li::before { color: var(--orange); }
+
+  /* ── BUTTONS ─────────────────────────────────────── */
+  .plan-btn {
+    display: block; width: 100%;
+    padding: 14px; border-radius: 8px;
+    font-size: 1rem; font-weight: 700;
+    cursor: pointer; border: none;
+    transition: transform 0.15s, box-shadow 0.2s, filter 0.2s;
+    text-align: center; letter-spacing: 0.3px;
+  }
+  .plan-btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+  .plan-btn:active { transform: translateY(0); }
+
+  .btn-starter {
+    background: var(--blue);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(26,111,255,0.4);
+  }
+  .btn-starter:hover { box-shadow: 0 6px 28px rgba(26,111,255,0.6); }
+
+  .btn-pro {
+    background: transparent;
+    color: #fff;
+    border: 2px solid var(--blue);
+    box-shadow: 0 0 20px rgba(26,111,255,0.3);
+  }
+  .btn-pro:hover {
+    background: rgba(26,111,255,0.15);
+    box-shadow: 0 0 35px rgba(26,111,255,0.5);
+  }
+
+  .btn-elite {
+    background: var(--orange);
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(249,115,22,0.4);
+  }
+  .btn-elite:hover { box-shadow: 0 6px 28px rgba(249,115,22,0.65); }
+
+  /* ── CANCEL NOTE ─────────────────────────────────── */
+  .cancel-note {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.8rem; color: var(--muted);
+    justify-content: center;
+  }
+  .cancel-note svg { width: 14px; height: 14px; opacity: 0.6; }
+
+  /* No credit card */
+  .no-cc {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 0.8rem; color: var(--muted);
+    justify-content: center;
+  }
+  .no-cc svg { width: 14px; height: 14px; opacity: 0.6; }
+
+  /* ── FOOTER NOTE ─────────────────────────────────── */
+  .footer-note {
+    text-align: center; margin-top: 40px;
+    font-size: 0.8rem; color: var(--muted);
+  }
+  .footer-note em { color: #fff; font-style: normal; }
+
+  /* ── FOOTER ──────────────────────────────────────── */
+  footer {
+    position: relative; z-index: 10;
+    text-align: center;
+    padding: 24px 20px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    font-size: 0.82rem; color: var(--muted);
+    display: flex; align-items: center; justify-content: center; gap: 24px;
+    flex-wrap: wrap;
+  }
+  footer a {
+    color: var(--muted); text-decoration: none;
+    transition: color 0.2s;
+  }
+  footer a:hover { color: #fff; }
+
+  /* ── RESPONSIVE ──────────────────────────────────── */
+  @media (max-width: 900px) {
+    .plans { grid-template-columns: 1fr; max-width: 420px; margin: 0 auto; }
+    header { padding: 14px 20px; }
+    .plan-pro { order: -1; }
+  }
+  @media (max-width: 480px) {
+    header { padding: 12px 16px; }
+    .logo { font-size: 1.2rem; }
+    .lang-btn { display: none; }
+    main { padding: 40px 16px 80px; }
+    .countdown { font-size: 2rem; padding: 10px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Background layers -->
+<div class="bg-scene"></div>
+<div class="bg-candles"></div>
+<div class="bg-city"></div>
+
+<!-- ── HEADER ──────────────────────────────────────── -->
+<header>
+  <a class="logo" href="#">
+    <!-- FlowScope leaf/wing logo -->
+    <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#60a5fa"/>
+          <stop offset="100%" stop-color="#3b82f6"/>
+        </linearGradient>
+      </defs>
+      <path d="M18 3 C10 3, 4 10, 4 18 C4 26, 10 33, 18 33 C26 33, 32 26, 32 18 C32 10, 26 3, 18 3Z" fill="url(#lg1)" opacity="0.15"/>
+      <path d="M18 6 C8 10, 6 22, 14 28 C16 22, 20 16, 30 12 C26 8, 22 6, 18 6Z" fill="url(#lg1)"/>
+      <path d="M18 6 C28 10, 30 22, 22 28 C20 22, 16 16, 6 12 C10 8, 14 6, 18 6Z" fill="#60a5fa" opacity="0.5"/>
+    </svg>
+    FlowScope
+  </a>
+  <div class="header-right">
+    <button class="lang-btn">
+      Language
+      <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+        <path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 1.5a6.5 6.5 0 11-.001 13.001A6.5 6.5 0 0110 3.5zm0 1c-1.1 0-2.1.9-2.8 2.3H7c-.6 0-1.1.1-1.6.2A5 5 0 0110 4.5zm2.8 2.3c-.7-1.4-1.7-2.3-2.8-2.3a5 5 0 014.4 2.5c-.5-.1-1-.2-1.6-.2zm-5.6.2H8.7C9 7.6 9.5 8.5 10 9.2c-.9-.2-1.8-.5-2.5-.9a5.3 5.3 0 01-.3-.8zm5.6 0c-.1.3-.2.5-.3.8-.7.4-1.6.7-2.5.9.5-.7 1-1.6 1.3-2.7h1.5zm-7 1.4c.8.5 1.8.9 2.9 1.1-.2.6-.3 1.3-.3 2H4.5a5 5 0 011.3-3.1zm8.4 0A5 5 0 0115.5 11h-2.9c0-.7-.1-1.4-.3-2 1.1-.2 2.1-.6 2.9-1.1zm-5.7 1.1c.2.6.3 1.3.3 2H9.2c0-.7.1-1.4.3-2 .2 0 .3.1.5.1s.3 0 .5-.1zm-3.9 2h2.9c0 .7.1 1.4.3 2-1.1.2-2.1.6-2.9 1.1A5 5 0 014.5 11zm5.5 0h1.6c0 .7-.1 1.4-.3 2-.2 0-.3-.1-.5-.1s-.3 0-.5.1c-.2-.6-.3-1.3-.3-2zm2.9 0h2.9a5 5 0 01-1.3 3.1c-.8-.5-1.8-.9-2.9-1.1.2-.6.3-1.3.3-2zm-7.6 3.3c.7-.4 1.6-.7 2.5-.9-.3 1.1-.8 2-1.3 2.7h-1.5c.1-.3.2-.5.3-.8-.1 0 0 0 0 0zm5.6 0c.1.3.2.5.3.8H10c-.5-.7-1-1.6-1.3-2.7.9.2 1.8.5 2.5.9zm-2.8 2.7c1.1 0 2.1-.9 2.8-2.3.5.1 1 .2 1.6.2A5 5 0 0110 15.5zm-2.8-2.3c.7 1.4 1.7 2.3 2.8 2.3a5 5 0 01-4.4-2.5c.5.1 1 .2 1.6.2z"/>
+      </svg>
+      عربي ▾
+    </button>
+    <button class="login-btn" onclick="window.location.href='/login.html'">Log In</button>
+  </div>
+</header>
+
+<!-- ── MAIN ────────────────────────────────────────── -->
+<main>
+
+  <!-- Hero -->
+  <section class="hero">
+    <h1>Choose Your Flow</h1>
+    <p><strong>Trade</strong> smarter with real market intelligence</p>
+  </section>
+
+  <!-- Free Trial Banner -->
+  <section class="trial-banner">
+    <h2>Try FlowScope Free for <span>12 Hours</span></h2>
+    <p>Experience real market intelligence with limited access</p>
+    <div class="countdown">
+      <span id="cd-h">11</span>
+      <span class="sep">:</span>
+      <span id="cd-m">59</span>
+      <span class="sep">:</span>
+      <span id="cd-s">48</span>
+    </div>
+  </section>
+
+  <!-- Plans -->
+  <div class="plans">
+
+    <!-- ── STARTER ──────────────────────────────────── -->
+    <div class="plan-card plan-starter">
+      <div class="card-top">
+        <div class="plan-name">Starter</div>
+        <div class="price">$19<span>/month</span></div>
+      </div>
+      <ul class="features">
+        <li>Access to FlowScope Core</li>
+        <li>Basic Order Flow Signals</li>
+        <li>Live Chart Tools</li>
+        <li>Community Access</li>
+      </ul>
+      <button class="plan-btn btn-starter" onclick="handlePaidPlan()">Start Trading</button>
+      <div class="cancel-note">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 1.5a6.5 6.5 0 110 13 6.5 6.5 0 010-13zm0 2.5a1 1 0 100 2 1 1 0 000-2zm-1 4v5h2V10H9z"/></svg>
+        Cancel Anytime
+      </div>
+    </div>
+
+    <!-- ── PRO (CENTER) ─────────────────────────────── -->
+    <div class="plan-card plan-pro">
+      <div class="card-top">
+        <div class="most-popular">MOST POPULAR</div>
+        <div class="plan-name">
+          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" width="26" height="26">
+            <path d="M18 6 C8 10, 6 22, 14 28 C16 22, 20 16, 30 12 C26 8, 22 6, 18 6Z" fill="#60a5fa"/>
+            <path d="M18 6 C28 10, 30 22, 22 28 C20 22, 16 16, 6 12 C10 8, 14 6, 18 6Z" fill="#93c5fd" opacity="0.5"/>
+          </svg>
+          Pro
+        </div>
+        <div class="price">$49<span>/month</span></div>
+      </div>
+      <ul class="features">
+        <li>Advanced Flow Analysis</li>
+        <li>Smart Signals Engine</li>
+        <li>Priority Updates</li>
+      </ul>
+      <button class="plan-btn btn-pro" id="btn-free-trial" onclick="activateTrial()">Start 12-Hour Free Trial</button>
+      <ul class="features" style="margin-top:4px;">
+        <li>Access to Live Chart</li>
+        <li>Basic Flow Analysis</li>
+        <li>Limited Smart Signals</li>
+      </ul>
+      <div class="no-cc">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M5 4a3 3 0 00-3 3v6a3 3 0 003 3h10a3 3 0 003-3V7a3 3 0 00-3-3H5zm0 1.5h10A1.5 1.5 0 0116.5 7v.5h-13V7A1.5 1.5 0 015 5.5zm-1.5 3h13V13A1.5 1.5 0 0115 14.5H5A1.5 1.5 0 013.5 13V8.5z"/></svg>
+        No Credit Card Required
+      </div>
+    </div>
+
+    <!-- ── ELITE ────────────────────────────────────── -->
+    <div class="plan-card plan-elite">
+      <div class="card-top">
+        <div class="elite-label">Built for Real Market Control</div>
+        <div class="price" style="font-size:clamp(2.6rem,4.5vw,3.6rem);">$89<span>/month</span></div>
+      </div>
+      <ul class="features">
+        <li>Full Market Depth &amp; Real Liquidity</li>
+        <li>See Where Real Orders Are Placed</li>
+        <li>Track Buy &amp; Sell Pressure in Real-Time</li>
+        <li>Identify Liquidity Zones &amp; Traps</li>
+        <li>Advanced Market Flow Reading</li>
+        <li>Institutional-Level Insights</li>
+        <li>High Precision Flow Signals</li>
+        <li>Real-Time Market Reaction Tracking</li>
+        <li>Priority Alerts &amp; Instant Updates</li>
+      </ul>
+      <button class="plan-btn btn-elite" onclick="handlePaidPlan()">Instant Access</button>
+    </div>
+
+  </div><!-- /plans -->
+
+  <p class="footer-note">
+    *Full access available only in <em>Pro</em> &amp; <em>Elite</em> plans
+  </p>
+
+</main>
+
+<!-- ── FOOTER ─────────────────────────────────────── -->
+<footer>
+  <a href="#">Privacy</a>
+  <a href="#">Terms</a>
+  <a href="#">Support</a>
+  <span>© 2025 FlowScope. All rights reserved.</span>
+</footer>
+
+<script>
+/* ── SUBSCRIPTION STATUS + COUNTDOWN ─────────────────────────────────── */
+(async function () {
+  var DURATION = 12 * 3600; // 12 hours in seconds
+
+  // Fetch real trial status from server
+  try {
+    var resp = await fetch('/api/subscription/status', { credentials: 'include' });
+    if (resp.ok) {
+      var data = await resp.json();
+      var btn = document.getElementById('btn-free-trial');
+
+      if (data.trialActive && data.trialEndsAt) {
+        // Trial is running — show live countdown from real trialEndsAt
+        var endsAt = new Date(data.trialEndsAt).getTime();
+        function tick() {
+          var remaining = Math.max(0, Math.floor((endsAt - Date.now()) / 1000));
+          var h = Math.floor(remaining / 3600);
+          var m = Math.floor((remaining % 3600) / 60);
+          var s = remaining % 60;
+          document.getElementById('cd-h').textContent = String(h).padStart(2, '0');
+          document.getElementById('cd-m').textContent = String(m).padStart(2, '0');
+          document.getElementById('cd-s').textContent = String(s).padStart(2, '0');
+          if (remaining === 0) {
+            document.getElementById('cd-h').textContent = '00';
+            document.getElementById('cd-m').textContent = '00';
+            document.getElementById('cd-s').textContent = '00';
+          }
+        }
+        tick();
+        setInterval(tick, 1000);
+        if (btn) { btn.textContent = 'Trial Active ✔'; btn.disabled = true; btn.style.opacity = '0.6'; }
+      } else if (data.trialUsed && !data.trialActive) {
+        // Trial expired
+        document.getElementById('cd-h').textContent = '00';
+        document.getElementById('cd-m').textContent = '00';
+        document.getElementById('cd-s').textContent = '00';
+        if (btn) { btn.textContent = 'Trial Expired'; btn.disabled = true; btn.style.opacity = '0.5'; }
+      } else {
+        // No trial yet — show static 12:00:00
+        document.getElementById('cd-h').textContent = '12';
+        document.getElementById('cd-m').textContent = '00';
+        document.getElementById('cd-s').textContent = '00';
+      }
+    } else {
+      // Not logged in — show static
+      document.getElementById('cd-h').textContent = '12';
+      document.getElementById('cd-m').textContent = '00';
+      document.getElementById('cd-s').textContent = '00';
+    }
+  } catch (e) {
+    document.getElementById('cd-h').textContent = '12';
+    document.getElementById('cd-m').textContent = '00';
+    document.getElementById('cd-s').textContent = '00';
+  }
+})();
+
+/* ── ACTIVATE FREE TRIAL ───────────────────────────────────────────────── */
+async function activateTrial() {
+  var btn = document.getElementById('btn-free-trial');
+  if (btn) { btn.disabled = true; btn.textContent = 'Activating...'; }
+  try {
+    var resp = await fetch('/api/trial/activate', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    var data = await resp.json();
+    if (data.ok) {
+      window.location.replace('/dashboard.html');
+    } else if (resp.status === 409) {
+      alert('Your free trial has already been used.');
+      if (btn) { btn.textContent = 'Trial Already Used'; btn.style.opacity = '0.5'; }
+    } else if (resp.status === 401 || resp.status === 403) {
+      window.location.replace('/login.html');
+    } else {
+      alert(data.error || 'Could not activate trial. Please try again.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Start 12-Hour Free Trial'; }
+    }
+  } catch (e) {
+    alert('Network error. Please try again.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Start 12-Hour Free Trial'; }
+  }
+}
+
+/* ── PAID PLAN HANDLER (placeholder) ────────────────────────────────────── */
+function handlePaidPlan() {
+  alert('Payment integration coming soon.');
+}
+</script>
+</body>
+</html>

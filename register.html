@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FlowScope — Register</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --bg: #0b0e17; --surface: #111520; --border: #1e2538; --text: #c8d0e7; --muted: #4a5270; --blue: #448aff; --green: #00e676; --red: #ff1744; --radius: 10px; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 36px 32px; width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 20px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 8px var(--blue); }
+  .brand-name { font-size: 1.2rem; font-weight: 800; color: #fff; }
+  h2 { font-size: .9rem; color: var(--muted); font-weight: 400; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  input { background: #0d1020; border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-size: .9rem; padding: 10px 14px; outline: none; transition: border-color .25s; }
+  input:focus { border-color: var(--blue); }
+  button { background: var(--blue); color: #fff; border: none; border-radius: 7px; padding: 11px; font-size: .9rem; font-weight: 700; cursor: pointer; transition: opacity .2s; }
+  button:hover { opacity: .88; }
+  #msg { font-size: .8rem; text-align: center; min-height: 1em; }
+  #msg.err { color: var(--red); } #msg.ok { color: var(--green); }
+  a { color: var(--blue); font-size: .8rem; text-align: center; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand"><div class="brand-dot"></div><span class="brand-name">FlowScope</span></div>
+  <h2>Create an account</h2>
+  <div class="field"><label>Username</label><input type="text" id="reg-user" placeholder="Choose a username" autocomplete="username" /></div>
+  <div class="field"><label>Password</label><input type="password" id="reg-pass" placeholder="Choose a password" autocomplete="new-password" /></div>
+  <div id="msg"></div>
+  <button id="btn" onclick="doRegister()">Register</button>
+  <a href="/login.html">← Back to Login</a>
+</div>
+<script>
+async function doRegister() {
+  var btn  = document.getElementById('btn');
+  var msg  = document.getElementById('msg');
+  var user = document.getElementById('reg-user').value.trim();
+  var pass = document.getElementById('reg-pass').value;
+  msg.textContent = ''; msg.className = '';
+  if (!user || !pass) { msg.textContent = 'Please enter username and password.'; msg.className = 'err'; return; }
+  btn.disabled = true; btn.textContent = 'Creating account…';
+  try {
+    var r = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass })
+    });
+    var d = await r.json();
+    if (d.ok) {
+      msg.textContent = 'Account created! Redirecting to login…'; msg.className = 'ok';
+      setTimeout(function() { window.location.href = '/login.html'; }, 1500);
+    } else {
+      msg.textContent = d.error || 'Registration failed.'; msg.className = 'err';
+      btn.disabled = false; btn.textContent = 'Register';
+    }
+  } catch(e) {
+    msg.textContent = 'Network error: ' + (e.message || 'Cannot reach server.'); msg.className = 'err';
+    btn.disabled = false; btn.textContent = 'Register';
+  }
+}
+document.addEventListener('keydown', function(e){ if(e.key==='Enter') doRegister(); });
+</script>
+</body>
+</html>
