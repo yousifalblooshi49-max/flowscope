@@ -75,15 +75,21 @@ function isTrialActive(user) {
   return user.trialUsed && user.trialEndsAt && new Date() < new Date(user.trialEndsAt);
 }
 
-/** Require authenticated session — else redirect to /login.html */
+/** Require authenticated session — API routes return JSON 401, page routes redirect */
 function requireAuth(req, res, next) {
   if (req.session && req.session.userId) return next();
+  if (req.path.startsWith('/api/')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   return res.redirect('/login.html');
 }
 
 /** Require authenticated AND admin session — else 403 */
 function requireAdmin(req, res, next) {
   if (!req.session || !req.session.userId) {
+    if (req.path.startsWith('/api/')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
     return res.redirect('/login.html');
   }
   if (!req.session.isAdmin) {
