@@ -1,21 +1,14 @@
 'use strict';
 
-// Load .env or flowscope.env locally; on Render, process.env is injected directly
-const path = require('path');
-const fs   = require('fs');
-const envFiles = ['.env', 'flowscope.env'];
-for (const f of envFiles) {
-  const p = path.join(__dirname, f);
-  if (fs.existsSync(p)) { require('dotenv').config({ path: p }); break; }
-}
+require('dotenv').config({ path: require('path').join(__dirname, 'flowscope.env') });
 
 const express        = require('express');
 const session        = require('express-session');
 const bcrypt         = require('bcryptjs');
+const path           = require('path');
 const cors           = require('cors');
 const connectDB      = require('./config/db');
 const User           = require('./models/User');
-const { fetchLivePrice } = require('./services/marketData');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -76,27 +69,18 @@ function isTrialActive(user) {
   return user.trialUsed && user.trialEndsAt && new Date() < new Date(user.trialEndsAt);
 }
 
-/** Require authenticated session — API routes return JSON 401, page routes redirect */
+/** Require authenticated session — else redirect to /login.html */
 function requireAuth(req, res, next) {
   if (req.session && req.session.userId) return next();
-  if (req.path.startsWith('/api/')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
   return res.redirect('/login.html');
 }
 
 /** Require authenticated AND admin session — else 403 */
 function requireAdmin(req, res, next) {
   if (!req.session || !req.session.userId) {
-    if (req.path.startsWith('/api/')) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
     return res.redirect('/login.html');
   }
   if (!req.session.isAdmin) {
-    if (req.path.startsWith('/api/')) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
     return res.status(403).send(
       '<!DOCTYPE html><html><head><meta charset="UTF-8">' +
       '<title>403 Forbidden</title>' +
@@ -189,57 +173,6 @@ app.get('/api/me', requireAuth, (req, res) => {
 });
 
 /* ─────────────────────────────────────────────
-   ADMIN API ROUTES
-───────────────────────────────────────────── */
-
-/** GET /api/admin/users — return all users from MongoDB */
-app.get('/api/admin/users', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const users = await User.find({}, {
-      username:      1,
-      isAdmin:       1,
-      hasSubscription: 1,
-      plan:          1,
-      trialUsed:     1,
-      trialStartedAt: 1,
-      trialEndsAt:   1,
-      createdAt:     1
-    }).sort({ createdAt: -1 }).lean();
-    return res.json({ ok: true, users });
-  } catch (err) {
-    console.error('[ADMIN/USERS]', err.message);
-    return res.status(500).json({ error: 'Server error.' });
-  }
-});
-
-/** GET /api/admin/stats — return real summary counts from MongoDB */
-app.get('/api/admin/stats', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const now = new Date();
-    const [totalUsers, adminCount, subscribedUsers, activeTrials, expiredTrials] = await Promise.all([
-      User.countDocuments({}),
-      User.countDocuments({ isAdmin: true }),
-      User.countDocuments({ hasSubscription: true }),
-      User.countDocuments({ trialUsed: true, trialEndsAt: { $gt: now } }),
-      User.countDocuments({ trialUsed: true, trialEndsAt: { $lte: now } })
-    ]);
-    const normalUsers = totalUsers - adminCount;
-    return res.json({
-      ok: true,
-      totalUsers,
-      adminCount,
-      subscribedUsers,
-      activeTrials,
-      expiredTrials,
-      normalUsers
-    });
-  } catch (err) {
-    console.error('[ADMIN/STATS]', err.message);
-    return res.status(500).json({ error: 'Server error.' });
-  }
-});
-
-/* ─────────────────────────────────────────────
    PROTECTED ADMIN ROUTE
 ───────────────────────────────────────────── */
 app.get('/admin-dashboard.html', requireAuth, requireAdmin, (req, res) => {
@@ -272,18 +205,74 @@ app.get('/register.html',     (req, res) => res.sendFile(path.join(__dirname, 'r
 app.get('/subscription.html', (req, res) => res.sendFile(path.join(__dirname, 'subscription.html')));
 
 /* Root redirect */
-app.get('/', async (req, res) => {
-  if (req.session && req.session.userId) {
-    if (req.session.isAdmin) return res.redirect('/admin-dashboard.html');
-    try {
-      const user = await User.findById(req.session.userId);
-      if (user && (user.hasSubscription || isTrialActive(user))) {
-        return res.redirect('/dashboard.html');
-      }
-    } catch (_) {}
+app.get('/', (req, res) => {
+  if (!req.session.user) {
     return res.redirect('/subscription.html');
   }
-  res.redirect('/login.html');
+
+  if (req.session.user.role === 'admin') {
+    return res.redirect('/admin-dashboard.html');
+  }
+
+  if (req.session.user.hasAccess) {
+    return res.redirect('/dashboard.html');
+  }
+
+  return res.redirect('/subscription.html');
+});
+
+/* ─────────────────────────────────────────────
+   MARKET DATA ROUTES
+───────────────────────────────────────────── */
+
+app.get('/api/market/candles', async (req, res) => {
+  try {
+    const symbol = 'GC=F'; // Gold Futures
+    const interval = req.query.interval || '5m';
+
+    const rangeMap = {
+      '1m': '1d',
+      '5m': '5d',
+      '15m': '5d',
+      '30m': '1mo',
+      '1h': '1mo'
+    };
+
+    const yahooIntervalMap = {
+      '1m': '1m',
+      '5m': '5m',
+      '15m': '15m',
+      '30m': '30m',
+      '1h': '60m'
+    };
+
+    const range = rangeMap[interval] || '5d';
+    const yInterval = yahooIntervalMap[interval] || '5m';
+
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${yInterval}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const result = data.chart.result[0];
+    const timestamps = result.timestamp;
+    const quote = result.indicators.quote[0];
+
+    const candles = timestamps.map((t, i) => ({
+      time: t * 1000,
+      open: quote.open[i],
+      high: quote.high[i],
+      low: quote.low[i],
+      close: quote.close[i],
+      volume: quote.volume[i] || 0
+    }));
+
+    res.json(candles);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch market data' });
+  }
 });
 
 /* ─────────────────────────────────────────────
@@ -328,21 +317,6 @@ app.get('/api/subscription/status', requireAuth, async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ error: 'Server error.' });
-  }
-});
-
-/* ─────────────────────────────────────────────
-   MARKET DATA API
-───────────────────────────────────────────── */
-
-/** GET /api/market/live — returns real-time XAUUSD (Gold) price, no auth required */
-app.get('/api/market/live', async (req, res) => {
-  try {
-    const data = await fetchLivePrice();
-    return res.json({ ok: true, ...data });
-  } catch (err) {
-    console.error('[MARKET/LIVE]', err.message);
-    return res.status(503).json({ ok: false, error: 'Market data temporarily unavailable.' });
   }
 });
 
